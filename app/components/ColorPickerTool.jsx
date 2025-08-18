@@ -1,14 +1,18 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from "react";
+import { useRouter } from "next/navigation";
 
 import SBPickerPanel from "./SBPickerPanel"; // adjust path if needed
 import { rgbToHsb } from "./SBPickerPanel"; // optional if it's not already in same file
 
 
-export default function ColorPickerTool() {
-  const [brand, setBrand] = useState("");
-  const [product, setProduct] = useState("");
+export default function ColorPickerTool({ initialBrand = "", initialProduct = "" }) {
+
+  const router = useRouter();
+
+  const [brand, setBrand] = useState(initialBrand);
+  const [product, setProduct] = useState(initialProduct);
   const [category, setCategory] = useState("lip");
   const [shades, setShades] = useState([{ name: "", hex: "", skintone: "", undertone: "", link: "", price: "" }]);
   const [activeShadeIndex, setActiveShadeIndex] = useState(0);
@@ -314,6 +318,13 @@ export default function ColorPickerTool() {
     alert("Photoshop action triggered (placeholder).")
   };
 
+  const logout = () => {
+    // clear cookie by expiring it
+    document.cookie = 'th_auth=; Max-Age=0; Path=/; SameSite=Lax';
+    localStorage.removeItem('th_user');
+    router.push('/login');
+  };
+
   useEffect(() => {
     if (image1 && imageRef1.current && canvasRef1.current) {
       const img = imageRef1.current;
@@ -342,6 +353,69 @@ export default function ColorPickerTool() {
     }
   }, [image2]);  
 
+  useEffect(() => {
+    const load = async () => {
+      if (!initialBrand || !initialProduct) return;
+      const r = await fetch(`/api/logs/get?brand=${encodeURIComponent(initialBrand)}&product=${encodeURIComponent(initialProduct)}`, { cache: "no-store" });
+      const j = await r.json();
+      if (j?.shades) {
+        setBrand(j.brand);
+        setProduct(j.product);
+      
+        // NEW: prefer API-level productType; fallback to first shade's type
+        const inferredType =
+          j.productType ||
+          (j.shades.find((s) => !!s.type)?.type ?? "");
+      
+        if (inferredType) setCategory(inferredType);
+      
+        setShades(
+          j.shades.map((s) => ({
+            name: s.name || "",
+            hex: s.hex || "",
+            skintone: s.skintone || "",
+            undertone: s.undertone || "",
+            link: s.link || "",
+            price: s.price || "",
+          }))
+        );
+      }
+      
+    };
+    load();
+  }, [initialBrand, initialProduct]);
+  
+
+  const deleteShade = (index) => {
+    setShades(prev => {
+      if (prev.length === 1) {
+        // keep one empty row so the UI never goes blank
+        setActiveShadeIndex(0);
+        setLockedIndex(null);
+        return [{ name: "", hex: "", skintone: "", undertone: "", link: "", price: "" }];
+      }
+  
+      const next = [...prev];
+      next.splice(index, 1);
+  
+      // fix active/locked indices
+      setActiveShadeIndex(curr => {
+        if (curr === index) return Math.max(0, index - 1);
+        if (curr > index) return curr - 1;
+        return curr;
+      });
+      setLockedIndex(curr => {
+        if (curr == null) return curr;
+        if (curr === index) return null;
+        if (curr > index) return curr - 1;
+        return curr;
+      });
+  
+      return next;
+    });
+  };
+  
+
   
 
 
@@ -352,6 +426,24 @@ export default function ColorPickerTool() {
         h1, h2 { font-family: 'Playfair Display', serif; }
         button { font-family: 'Roboto Mono', monospace; }
       `}</style>
+            <div className="max-w-7xl mx-auto mb-4 flex items-center justify-between">
+        <div className="flex gap-2">
+          <button
+            className="px-4 py-2 bg-white text-[#ab1f10] border border-[#ab1f10] rounded hover:bg-rose-100"
+            onClick={() => router.push('/logs')}
+            type="button"
+          >
+            View Logs
+          </button>
+        </div>
+        <button
+          className="px-4 py-2 bg-[#ab1f10] text-white rounded hover:bg-red-700"
+          onClick={logout}
+          type="button"
+        >
+          Logout
+        </button>
+      </div>
       <div className="max-w-7xl mx-auto bg-white shadow-xl rounded-2xl overflow-hidden flex flex-col md:flex-row">
         <div className="w-full md:w-1/3 p-6 space-y-4 bg-rose-50">
           <h1 className="text-2xl font-bold text-[#ab1f10] mb-4">TrueHue Shade Capture</h1>
@@ -485,6 +577,16 @@ export default function ColorPickerTool() {
                       setShades(newShades);
                     }}
                   />
+
+                  <button
+                      type="button"
+                      aria-label={`Delete shade ${shade.name || i + 1}`}
+                      title="Delete shade"
+                      onClick={() => deleteShade(i)}
+                      className="shrink-0 px-3 py-2 rounded border border-rose-200 text-rose-700 hover:bg-rose-100"
+                    >
+                      Delete
+                    </button>
 
 
                 </div>
