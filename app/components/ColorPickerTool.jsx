@@ -1,10 +1,21 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 
 import SBPickerPanel from "./SBPickerPanel"; // adjust path if needed
 import { rgbToHsb } from "./SBPickerPanel"; // optional if it's not already in same file
+
+// Treat these as "lip" categories
+const LIP_CATEGORIES = [
+  "matte-lipstick",
+  "satin-lipstick",
+  "lip-gloss",
+  "lip-tint",
+  "lip-balm",
+];
+
+const isLipCategory = (c) => LIP_CATEGORIES.includes(c);
 
 
 export default function ColorPickerTool({ initialBrand = "", initialProduct = "" }) {
@@ -323,6 +334,32 @@ export default function ColorPickerTool({ initialBrand = "", initialProduct = ""
     document.cookie = 'th_auth=; Max-Age=0; Path=/; SameSite=Lax';
     localStorage.removeItem('th_user');
     router.push('/login');
+  };
+
+  const exportText = useMemo(() => {
+    const headerLabel = product
+      ? `// ${product}`
+      : `// ${category?.replace(/-/g, " ") || "Shades"}`;
+    const rows = shades
+      .filter(s => s.name && s.hex)
+      .map(s => `    {name: "${s.name}",   hex: "${s.hex}"}`)
+      .join(",\n");
+  
+    return `var shades = [\n    ${headerLabel}\n${rows}\n];`;
+  }, [shades, product, category]);
+  
+  const copyExportText = async () => {
+    try {
+      await navigator.clipboard.writeText(exportText);
+      alert("Copied to clipboard!");
+    } catch (e) {
+      // Fallback: select the textarea programmatically if needed
+      const ta = document.getElementById("th-export-textarea");
+      if (ta) {
+        ta.focus();
+        ta.select();
+      }
+    }
   };
 
   useEffect(() => {
@@ -683,6 +720,37 @@ export default function ColorPickerTool({ initialBrand = "", initialProduct = ""
           >
             Add to Product Database 
           </button>
+
+          {/* --- Export (JS array) — only for lip categories --- */}
+          {isLipCategory(category) && (
+            <div className="mt-6 space-y-2">
+              <h2 className="text-lg font-semibold text-[#ab1f10]">
+                Export Shades (JS array)
+              </h2>
+
+              <textarea
+                id="th-export-textarea"
+                readOnly
+                value={exportText}
+                rows={Math.min(12, Math.max(6, shades.length + 4))}
+                className="w-full p-3 border border-rose-200 rounded text-black font-mono text-sm bg-rose-50"
+              />
+
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={copyExportText}
+                  className="px-4 py-2 bg-[#ab1f10] hover:bg-red-700 text-white rounded"
+                >
+                  Copy
+                </button>
+                <span className="text-xs text-gray-500 self-center">
+                  Format: <code>var shades = [&#123;name, hex&#125; ...]</code>
+                </span>
+              </div>
+            </div>
+          )}
+
 
         </div>
 
