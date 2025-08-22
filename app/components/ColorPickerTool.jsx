@@ -813,14 +813,17 @@ export default function ColorPickerTool({ initialBrand = "", initialProduct = ""
         </div>
         </div>
       </div>
-      <SBPickerPanel
-        show={showSBPicker}
-        hue={currentHue}
-        onClose={() => setShowSBPicker(false)}
-        activeShadeIndex={activeShadeIndex}
-        shades={shades}
-        setShades={setShades}
-      />
+    <SBPickerPanel
+      show={showSBPicker}
+      hue={currentHue}
+      onClose={() => setShowSBPicker(false)}
+      activeShadeIndex={activeShadeIndex}
+      shades={shades}
+      setShades={setShades}
+      pickerSize={448}     // e.g., 448 or 512
+      panelWidth={520}
+      swatchSize={56}
+    />
     </div>
   );
 }
